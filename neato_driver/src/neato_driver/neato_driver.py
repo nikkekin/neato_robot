@@ -28,6 +28,13 @@
 """
 neato_driver.py is a generic driver for the Neato XV-11 Robotic Vacuum.
 ROS Bindings can be found in the neato_node package.
+
+Updated version to comply with the API provided on the neato webpage:
+
+http://www.neatorobotics.com/programmers-manual/
+
+Note that the new firmware seems to support only a subset of the API
+that used to be available.
 """
 
 __author__ = "ferguson@cs.albany.edu (Michael Ferguson)"
@@ -41,18 +48,19 @@ xv11_analog_sensors = [ "WallSensorInMM",
                 "BatteryVoltageInmV",
                 "LeftDropInMM",
                 "RightDropInMM",
-                "RightMagSensor",
-                "LeftMagSensor",
-                "XTemp0InC",
-                "XTemp1InC",
-                "VacuumCurrentInmA",
+                "LeftMagSensor", 
+		"RightMagSensor",
+                "UIButtonInmV",
+		"VacuumCurrentInmA",
                 "ChargeVoltInmV",
-                "NotConnected1",
+		"BatteryTemp0InC",
                 "BatteryTemp1InC",
                 "NotConnected2",
                 "CurrentInmA",
-                "NotConnected3",
-                "BatteryTemp0InC" ]
+                "SideBrushCurrentInmA",
+		"AccelXInmG",
+		"AccelYInmG",
+		"AccelZInmG" ]
 
 xv11_digital_sensors = [ "SNSR_DC_JACK_CONNECT",
                 "SNSR_DUSTBIN_IS_IN",
@@ -63,36 +71,20 @@ xv11_digital_sensors = [ "SNSR_DC_JACK_CONNECT",
                 "RSIDEBIT",
                 "RFRONTBIT" ]
 
-xv11_motor_info = [ "Brush_MaxPWM",
-                "Brush_PWM",
-                "Brush_mVolts",
-                "Brush_Encoder",
-                "Brush_RPM",
-                "Vacuum_MaxPWM",
-                "Vacuum_PWM",
-                "Vacuum_CurrentInMA",
-                "Vacuum_Encoder",
-                "Vacuum_RPM",
-                "LeftWheel_MaxPWM",
-                "LeftWheel_PWM",
-                "LeftWheel_mVolts",
-                "LeftWheel_Encoder",
-                "LeftWheel_PositionInMM",
-                "LeftWheel_RPM",
-                "RightWheel_MaxPWM",
-                "RightWheel_PWM",
-                "RightWheel_mVolts",
-                "RightWheel_Encoder",
-                "RightWheel_PositionInMM",
-                "RightWheel_RPM",
-                "Laser_MaxPWM",
-                "Laser_PWM",
-                "Laser_mVolts",
-                "Laser_Encoder",
-                "Laser_RPM",
-                "Charger_MaxPWM",
-                "Charger_PWM",
-                "Charger_mAH" ]
+xv11_motor_info = [ "Brush_RPM",
+	 "Brush_mA",
+	 "Vacuum_RPM",
+	 "Vacuum_mA",
+	 "LeftWheel_RPM",
+	 "LeftWheel_Load%",
+	 "LeftWheel_PositionInMM",
+	 "LeftWheel_Speed",
+	 "RightWheel_RPM",
+	 "RightWheel_Load%",
+	 "RightWheel_PositionInMM",
+	 "RightWheel_Speed",
+	 "Charger_mAH",
+	 "SideBrush_mA" ]
 
 xv11_charger_info = [ "FuelPercent",
                 "BatteryOverTemp",
@@ -109,12 +101,11 @@ xv11_charger_info = [ "FuelPercent",
                 "BattTempCAvg[1]",
                 "VBattV",
                 "VExtV",
-                "Charger_mAH",
-                "MaxPWM" ]
+                "Charger_mAH" ] 
 
 class xv11():
 
-    def __init__(self, port="/dev/ttyUSB0"):
+    def __init__(self, port="/dev/ttyACM0"):
         self.port = serial.Serial(port,115200)
         # Storage for motor and sensor information
         self.state = {"LeftWheel_PositionInMM": 0, "RightWheel_PositionInMM": 0}
@@ -192,8 +183,12 @@ class xv11():
         self.port.flushInput()
         self.port.write("getmotors\n")
         line = self.port.readline()
-        while line.split(",")[0] != "Parameter":
-            try:
+        print line
+	if len(line) == 0:
+	    return
+	while line.split(",")[0] != "Parameter":
+       	    #loop until first line is found     
+	    try:
                 line = self.port.readline()
             except:
                 return [0,0]
@@ -207,7 +202,8 @@ class xv11():
 
     def getAnalogSensors(self):
         """ Update values for analog sensors in the self.state dictionary. """
-        self.port.write("getanalogsensors\n")
+        self.port.flushInput()
+	self.port.write("getanalogsensors\n")
         line = self.port.readline()
         while line.split(",")[0] != "SensorName":
             try:
@@ -223,7 +219,8 @@ class xv11():
 
     def getDigitalSensors(self):
         """ Update values for digital sensors in the self.state dictionary. """
-        self.port.write("getdigitalsensors\n")
+        self.port.flushInput()
+	self.port.write("getdigitalsensors\n")
         line = self.port.readline()
         while line.split(",")[0] != "Digital Sensor Name":
             try:
